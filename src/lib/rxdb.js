@@ -3,67 +3,9 @@ import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { replicateWebRTC, getConnectionHandlerSimplePeer } from 'rxdb/plugins/replication-webrtc';
 import { RxDBUpdatePlugin } from 'rxdb/plugins/update';
 
-// Add plugins
 addRxPlugin(RxDBUpdatePlugin);
 
-// Schemas
-const userSchema = {
-  version: 0,
-  primaryKey: 'id',
-  type: 'object',
-  properties: {
-    id: { type: 'string', maxLength: 100 },
-    name: { type: 'string' },
-    email: { type: 'string' },
-    password: { type: 'string' },
-    role: { type: 'string' }
-  },
-  required: ['id', 'name', 'email', 'password', 'role']
-};
-
-const tableSchema = {
-  version: 0,
-  primaryKey: 'id',
-  type: 'object',
-  properties: {
-    id: { type: 'string', maxLength: 100 },
-    label: { type: 'string' },
-    qrCodeUrl: { type: 'string' }
-  },
-  required: ['id', 'label', 'qrCodeUrl']
-};
-
-const categorySchema = {
-  version: 0,
-  primaryKey: 'id',
-  type: 'object',
-  properties: {
-    id: { type: 'string', maxLength: 100 },
-    name: { type: 'string' },
-    order: { type: 'number' }
-  },
-  required: ['id', 'name', 'order']
-};
-
-const menuItemSchema = {
-  version: 0,
-  primaryKey: 'id',
-  type: 'object',
-  properties: {
-    id: { type: 'string', maxLength: 100 },
-    name: { type: 'string' },
-    categoryId: { type: 'string' },
-    price: { type: 'number' },
-    description: { type: 'string' },
-    imageUrl: { type: 'string' },
-    available: { type: 'boolean' },
-    customizationOptions: {
-      type: 'array',
-      items: { type: 'string' }
-    }
-  },
-  required: ['id', 'name', 'categoryId', 'price', 'description', 'imageUrl', 'available']
-};
+// ─── Schemas ────────────────────────────────────────────────────────────────
 
 const orderSchema = {
   version: 0,
@@ -86,16 +28,16 @@ const orderSchema = {
           price: { type: 'number' },
           quantity: { type: 'number' },
           customizations: { type: 'array', items: { type: 'string' } },
-          specialInstructions: { type: 'string' }
-        }
-      }
+          specialInstructions: { type: 'string' },
+        },
+      },
     },
     totalAmount: { type: 'number' },
     status: { type: 'string' },
     paymentStatus: { type: 'string' },
-    createdAt: { type: 'string' }
+    createdAt: { type: 'string' },
   },
-  required: ['id', 'tableId', 'items', 'status', 'paymentStatus']
+  required: ['id', 'tableId', 'items', 'status', 'paymentStatus'],
 };
 
 const waiterCallSchema = {
@@ -106,52 +48,47 @@ const waiterCallSchema = {
     id: { type: 'string', maxLength: 100 },
     tableId: { type: 'string' },
     orderId: { type: 'string' },
-    timestamp: { type: 'string' }
+    timestamp: { type: 'string' },
   },
-  required: ['id', 'tableId', 'timestamp']
+  required: ['id', 'tableId', 'timestamp'],
 };
+
+// ─── Singleton ───────────────────────────────────────────────────────────────
 
 let dbPromise = null;
 
 export const initRxDB = async () => {
   if (dbPromise) return dbPromise;
-  
+
   dbPromise = (async () => {
     const db = await createRxDatabase({
-      name: 'qrcafedb_v2',
+      name: 'qrcafe_orders_v1',
       storage: getRxStorageDexie(),
       multiInstance: true,
       eventReduce: true,
-      ignoreDuplicate: true
+      ignoreDuplicate: true,
     });
 
     await db.addCollections({
-      users: { schema: userSchema },
-      tables: { schema: tableSchema },
-      categories: { schema: categorySchema },
-      menuItems: { schema: menuItemSchema },
       orders: { schema: orderSchema },
-      waitercalls: { schema: waiterCallSchema }
+      waitercalls: { schema: waiterCallSchema },
     });
 
-    // Set up WebRTC replication for collections that need cross-device sync
-    // Sync all collections across devices in the cafe so that new dishes, tables, and users sync in real-time.
-    const collectionsToSync = [db.orders, db.waitercalls, db.menuItems, db.categories, db.users, db.tables];
-    
-    // We use a public signaling server for demonstration.
-    // In production, host your own socket.io signaling server.
+    // WebRTC P2P sync — orders and waiter calls only
+    // Devices must be open simultaneously for WebRTC to sync.
+    // Use public signaling server for demonstration.
     const signalingServerUrl = 'wss://signaling.rxdb.info/';
-    const roomName = 'qr-cafe-sync-room-12345'; // unique room
+    const roomName = 'qr-cafe-orders-v1'; // unique room
 
-    collectionsToSync.forEach(collection => {
+    [db.orders, db.waitercalls].forEach((collection) => {
       replicateWebRTC({
         collection,
         topic: `${roomName}-${collection.name}`,
         connectionHandlerCreator: getConnectionHandlerSimplePeer({
-          signalingServerUrl
+          signalingServerUrl,
         }),
         pull: {},
-        push: {}
+        push: {},
       });
     });
 

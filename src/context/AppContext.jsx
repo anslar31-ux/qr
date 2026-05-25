@@ -1,26 +1,62 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { initRxDB } from '../lib/rxdb';
 import { INITIAL_DATA } from '../lib/initial-data';
 
 const AppContext = createContext();
 
+const MENU_STORAGE_KEY = 'cafe_menu_v1';
+const BROADCAST_CHANNEL = 'cafe_menu_sync';
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function loadMenuFromStorage() {
+  try {
+    const raw = localStorage.getItem(MENU_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return null;
+}
+
+function saveMenuToStorage(menu) {
+  try {
+    localStorage.setItem(MENU_STORAGE_KEY, JSON.stringify(menu));
+  } catch (_) {}
+}
+
+// ─── Provider ────────────────────────────────────────────────────────────────
+
 export const AppProvider = ({ children }) => {
   const [rxdb, setRxdb] = useState(null);
-  
-  // Initialize db state with empty arrays. 
-  // It matches the structure expected by components.
-  const [dbState, setDbState] = useState({
-    users: [],
-    tables: [],
-    categories: [],
-    menuItems: [],
-    orders: [],
-    waiterCalls: []
-  });
+  const [loading, setLoading] = useState(true);
 
-  const [user, setUser] = useState(null); // Current authenticated user
-  const [cart, setCart] = useState([]); // Cart array
-  const [loading, setLoading] = useState(true); // Loading state for RxDB initialization
+  // ── Menu state (localStorage + BroadcastChannel) ──────────────────────────
+  const getInitialMenu = () => {
+    const stored = loadMenuFromStorage();
+    if (stored) return stored;
+    const fresh = {
+      categories: INITIAL_DATA.categories,
+      menuItems: INITIAL_DATA.menuItems,
+    };
+    saveMenuToStorage(fresh);
+    return fresh;
+  };
+
+  const [menuState, setMenuState] = useState(getInitialMenu);
+  const bcRef = useRef(null);
+
+  useEffect(() => {
+    // BroadcastChannel: sync menu across all open tabs instantly
+    const bc = new BroadcastChannel(BROADCAST_CHANNEL);
+    bcRef.current = bc;
+    bc.onmessage = (e) => {
+      setMenuState(e.data);
+      saveMenuToStorage(e.data);
+    };
+    return () => bc.close();
+  }, []);
+
+  // ── Orders / WaiterCalls state (RxDB + WebRTC) ────────────────────────────
+  const [ordersState, setOrdersState] = useState({ orders: [], waiterCalls: [] });
 
   useEffect(() => {
     let subs = [];
@@ -30,100 +66,126 @@ export const AppProvider = ({ children }) => {
         const db = await initRxDB();
         setRxdb(db);
 
-        // Check if DB collections are empty individually, if so populate from INITIAL_DATA
-        const [usersCount, tablesCount, categoriesCount, menuItemsCount] = await Promise.all([
-          db.users.count().exec(),
-          db.tables.count().exec(),
-          db.categories.count().exec(),
-          db.menuItems.count().exec()
-        ]);
-
-        if (usersCount === 0) {
-          await db.users.bulkInsert(INITIAL_DATA.users);
-        }
-        if (tablesCount === 0) {
-          await db.tables.bulkInsert(INITIAL_DATA.tables);
-        }
-        if (categoriesCount === 0) {
-          await db.categories.bulkInsert(INITIAL_DATA.categories);
-        }
-        if (menuItemsCount === 0) {
-          await db.menuItems.bulkInsert(INITIAL_DATA.menuItems);
-        }
-
-        // Helper to pull all data into React state
-        const updateState = async () => {
-          const [users, tables, categories, menuItems, orders, waiterCalls] = await Promise.all([
-            db.users.find().exec(),
-            db.tables.find().exec(),
-            db.categories.find().exec(),
-            db.menuItems.find().exec(),
+        const updateOrders = async () => {
+          const [orders, waiterCalls] = await Promise.all([
             db.orders.find().exec(),
-            db.waitercalls.find().exec()
+            db.waitercalls.find().exec(),
           ]);
-
-          setDbState({
-            users: users.map(d => d.toJSON()),
-            tables: tables.map(d => d.toJSON()),
-            categories: categories.map(d => d.toJSON()),
-            menuItems: menuItems.map(d => d.toJSON()),
-            orders: orders.map(d => d.toJSON()),
-            waiterCalls: waiterCalls.map(d => d.toJSON())
+          setOrdersState({
+            orders: orders.map((d) => d.toJSON()),
+            waiterCalls: waiterCalls.map((d) => d.toJSON()),
           });
         };
 
-        // Initial fetch
-        await updateState();
+        await updateOrders();
         setLoading(false);
 
-        // Subscribe to real-time changes via RxDB Observables
-        // Whenever any data changes (locally or via WebRTC), update the state
-        subs.push(db.orders.$.subscribe(() => updateState()));
-        subs.push(db.waitercalls.$.subscribe(() => updateState()));
-        subs.push(db.users.$.subscribe(() => updateState()));
-        subs.push(db.menuItems.$.subscribe(() => updateState()));
-        subs.push(db.categories.$.subscribe(() => updateState()));
-        subs.push(db.tables.$.subscribe(() => updateState()));
-      } catch (error) {
-        console.error("RxDB init error:", error);
+        subs.push(db.orders.$.subscribe(() => updateOrders()));
+        subs.push(db.waitercalls.$.subscribe(() => updateOrders()));
+      } catch (err) {
+        console.error('RxDB init error:', err);
         setLoading(false);
       }
     };
 
     setupDB();
-
-    return () => {
-      subs.forEach(s => s.unsubscribe());
-    };
+    return () => subs.forEach((s) => s.unsubscribe());
   }, []);
 
+  // ── Static data (users + tables from INITIAL_DATA) ───────────────────────
+  const [staticState] = useState({
+    users: INITIAL_DATA.users,
+    tables: INITIAL_DATA.tables,
+  });
+
+  // ── Composed db object for components ─────────────────────────────────────
+  const db = {
+    users: staticState.users,
+    tables: staticState.tables,
+    categories: menuState.categories,
+    menuItems: menuState.menuItems,
+    orders: ordersState.orders,
+    waiterCalls: ordersState.waiterCalls,
+  };
+
+  // ─── Auth ─────────────────────────────────────────────────────────────────
+  const [user, setUser] = useState(null);
+
   const login = (email, password) => {
-    const u = dbState.users.find(u => u.email === email && u.password === password);
-    if (u) {
-      setUser(u);
-      return true;
-    }
+    const u = staticState.users.find(
+      (u) => u.email === email && u.password === password
+    );
+    if (u) { setUser(u); return true; }
     return false;
   };
 
   const logout = () => setUser(null);
 
-  const addToCart = (item, quantity, customizations, specialInstructions) => {
-    setCart(prev => [...prev, { ...item, cartId: Date.now(), quantity, customizations, specialInstructions }]);
-  };
+  // ─── Cart ─────────────────────────────────────────────────────────────────
+  const [cart, setCart] = useState([]);
 
-  const removeFromCart = (cartId) => {
-    setCart(prev => prev.filter(c => c.cartId !== cartId));
-  };
+  const addToCart = (item, quantity, customizations, specialInstructions) =>
+    setCart((prev) => [
+      ...prev,
+      { ...item, cartId: Date.now(), quantity, customizations, specialInstructions },
+    ]);
+
+  const removeFromCart = (cartId) =>
+    setCart((prev) => prev.filter((c) => c.cartId !== cartId));
 
   const clearCart = () => setCart([]);
 
+  // ─── Menu management (localStorage + BroadcastChannel) ───────────────────
+
+  const broadcastMenu = (updated) => {
+    saveMenuToStorage(updated);
+    setMenuState(updated);
+    try {
+      bcRef.current?.postMessage(updated);
+    } catch (_) {}
+  };
+
+  const addMenuItem = (item) => {
+    const newItem = {
+      id: `m_${Date.now()}`,
+      name: item.name,
+      categoryId: item.categoryId,
+      price: Number(item.price),
+      description: item.description,
+      imageUrl:
+        item.imageUrl ||
+        'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&q=80',
+      available: true,
+      customizationOptions: item.customizationOptions || [],
+    };
+    const updated = {
+      ...menuState,
+      menuItems: [...menuState.menuItems, newItem],
+    };
+    broadcastMenu(updated);
+    return newItem.id;
+  };
+
+  const toggleMenuItemAvailability = (itemId) => {
+    const updated = {
+      ...menuState,
+      menuItems: menuState.menuItems.map((m) =>
+        m.id === itemId ? { ...m, available: !m.available } : m
+      ),
+    };
+    broadcastMenu(updated);
+  };
+
+  // ─── Orders (RxDB) ───────────────────────────────────────────────────────
+
   const placeOrder = async (tableId) => {
     if (!rxdb) return;
-    const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const totalAmount = cart.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
     const orderId = `ord_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    
-    const newOrder = {
+    await rxdb.orders.insert({
       id: orderId,
       tableId,
       customerId: user?.id || 'guest',
@@ -133,84 +195,55 @@ export const AppProvider = ({ children }) => {
       totalAmount,
       status: 'Pending',
       paymentStatus: 'Unpaid',
-      createdAt: new Date().toISOString()
-    };
-    
-    await rxdb.orders.insert(newOrder);
+      createdAt: new Date().toISOString(),
+    });
     clearCart();
     return orderId;
   };
 
   const updateOrderStatus = async (orderId, status) => {
     if (!rxdb) return;
-    const orderDoc = await rxdb.orders.findOne(orderId).exec();
-    if (orderDoc) {
-      await orderDoc.patch({ status });
-    }
+    const doc = await rxdb.orders.findOne(orderId).exec();
+    if (doc) await doc.patch({ status });
   };
 
   const updateOrderPayment = async (orderId, paymentStatus) => {
     if (!rxdb) return;
-    const orderDoc = await rxdb.orders.findOne(orderId).exec();
-    if (orderDoc) {
-      await orderDoc.patch({ paymentStatus });
-    }
+    const doc = await rxdb.orders.findOne(orderId).exec();
+    if (doc) await doc.patch({ paymentStatus });
   };
 
   const callWaiter = async (tableId, orderId) => {
     if (!rxdb) return;
     const callId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    const call = { 
-      id: callId, 
-      tableId, 
-      orderId: orderId || '', 
-      timestamp: new Date().toISOString() 
-    };
-    await rxdb.waitercalls.insert(call);
+    await rxdb.waitercalls.insert({
+      id: callId,
+      tableId,
+      orderId: orderId || '',
+      timestamp: new Date().toISOString(),
+    });
   };
 
   const dismissCall = async (callId) => {
     if (!rxdb) return;
-    const callDoc = await rxdb.waitercalls.findOne(callId).exec();
-    if (callDoc) {
-      await callDoc.remove();
-    }
+    const doc = await rxdb.waitercalls.findOne(callId).exec();
+    if (doc) await doc.remove();
   };
 
-  const addMenuItem = async (item) => {
-    if (!rxdb) return;
-    const newItem = {
-      id: `m_${Date.now()}`,
-      name: item.name,
-      categoryId: item.categoryId,
-      price: Number(item.price),
-      description: item.description,
-      imageUrl: item.imageUrl || 'https://images.unsplash.com/photo-1541167760496-1628856ab772',
-      available: true,
-      customizationOptions: item.customizationOptions || []
-    };
-    await rxdb.menuItems.insert(newItem);
-    return newItem.id;
-  };
-
-  const toggleMenuItemAvailability = async (itemId) => {
-    if (!rxdb) return;
-    const doc = await rxdb.menuItems.findOne(itemId).exec();
-    if (doc) {
-      await doc.patch({ available: !doc.get('available') });
-    }
-  };
+  // ─── Context value ────────────────────────────────────────────────────────
 
   return (
-    <AppContext.Provider value={{ 
-      db: dbState, 
-      loading,
-      user, login, logout, 
-      cart, addToCart, removeFromCart, clearCart, 
-      placeOrder, updateOrderStatus, updateOrderPayment, 
-      callWaiter, dismissCall,
-      addMenuItem, toggleMenuItemAvailability
-    }}>
+    <AppContext.Provider
+      value={{
+        db,
+        loading,
+        user, login, logout,
+        cart, addToCart, removeFromCart, clearCart,
+        placeOrder, updateOrderStatus, updateOrderPayment,
+        callWaiter, dismissCall,
+        addMenuItem, toggleMenuItemAvailability,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );
