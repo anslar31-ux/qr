@@ -46,3 +46,26 @@ export const subscribeToOrders = (callback) => {
 export const triggerDBUpdate = () => {
   window.dispatchEvent(new Event('custom-db-update'));
 }
+// -------------------------------------------------------------------
+// Helper: Generate full URLs for each table
+// -------------------------------------------------------------------
+export const getTableLinks = () => {
+  const base = typeof window !== 'undefined' ? window.location.origin : '';
+  const db = getDB();
+  return db.tables.map(t => ({
+    id: t.id,
+    link: `${base}${t.qrCodeUrl}`
+  }));
+};
+
+// -------------------------------------------------------------------
+// Helper: Get staff dashboard URLs
+// -------------------------------------------------------------------
+export const getStaffLinks = () => {
+  const base = typeof window !== 'undefined' ? window.location.origin : '';
+  return {
+    owner: `${base}/admin/`,
+    kitchen: `${base}/staff/kitchen`,
+    waiter: `${base}/staff/waiter`
+  };
+};
