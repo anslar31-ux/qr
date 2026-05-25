@@ -5,16 +5,19 @@ import { useAppContext } from '../../context/AppContext';
 const Landing = () => {
   const { tableId } = useParams();
   const navigate = useNavigate();
-  const { db, user } = useAppContext();
+  const { db, user, loading } = useAppContext();
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (loading) return; // Wait until RxDB is fully initialized and seeded
+
     const table = db.tables.find(t => t.id === tableId);
     if (!table) {
       setError('Invalid Table Code Scanned.');
       return;
     }
     
+    setError(''); // Clear error if table is valid
     sessionStorage.setItem('currentTable', tableId);
 
     const timer = setTimeout(() => {
@@ -23,7 +26,7 @@ const Landing = () => {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [tableId, db, user, navigate]);
+  }, [tableId, db, user, navigate, loading]);
 
   return (
     <div className="container flex-col items-center justify-center text-center" style={{ minHeight: 'calc(100vh - 150px)', display: 'flex' }}>
@@ -35,7 +38,9 @@ const Landing = () => {
         The Cafe
       </h2>
       
-      {error ? (
+      {loading ? (
+        <p style={{ fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>Connecting to L'Artisan...</p>
+      ) : error ? (
         <p style={{ color: 'var(--color-red)' }}>{error}</p>
       ) : (
         <p style={{ fontStyle: 'italic', color: 'var(--color-accent)' }}>Preparing your seat at Table {tableId}...</p>

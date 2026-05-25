@@ -20,6 +20,7 @@ export const AppProvider = ({ children }) => {
 
   const [user, setUser] = useState(null); // Current authenticated user
   const [cart, setCart] = useState([]); // Cart array
+  const [loading, setLoading] = useState(true); // Loading state for RxDB initialization
 
   useEffect(() => {
     let subs = [];
@@ -63,6 +64,7 @@ export const AppProvider = ({ children }) => {
 
         // Initial fetch
         await updateState();
+        setLoading(false);
 
         // Subscribe to real-time changes via RxDB Observables
         // Whenever any data changes (locally or via WebRTC), update the state
@@ -72,6 +74,7 @@ export const AppProvider = ({ children }) => {
         subs.push(db.menuItems.$.subscribe(() => updateState()));
       } catch (error) {
         console.error("RxDB init error:", error);
+        setLoading(false);
       }
     };
 
@@ -165,6 +168,7 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider value={{ 
       db: dbState, 
+      loading,
       user, login, logout, 
       cart, addToCart, removeFromCart, clearCart, 
       placeOrder, updateOrderStatus, updateOrderPayment, 
