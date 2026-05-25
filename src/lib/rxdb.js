@@ -118,7 +118,7 @@ export const initRxDB = async () => {
   
   dbPromise = (async () => {
     const db = await createRxDatabase({
-      name: 'qrcafedb',
+      name: 'qrcafedb_v2',
       storage: getRxStorageDexie(),
       multiInstance: true,
       eventReduce: true,
