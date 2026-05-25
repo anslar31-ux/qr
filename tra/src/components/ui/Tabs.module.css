@@ -1,0 +1,33 @@
+.tabsContainer {
+  display: flex;
+  gap: var(--space-2);
+  background-color: var(--card-bg);
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  margin-bottom: var(--space-6);
+  overflow-x: auto;
+}
+
+.tab {
+  flex: 1;
+  padding: var(--space-2) var(--space-4);
+  text-align: center;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.tab:hover:not(.active) {
+  color: var(--text-main);
+  background-color: var(--bg-color);
+}
+
+.active {
+  background-color: var(--primary-color);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}

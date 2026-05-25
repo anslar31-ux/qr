@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --color-bg: #F9F7F2; /* Cream background */
+  --color-surface: #FFFFFF; /* White cards */
+  --color-text-primary: #1A1A1A; /* Black text */
+  --color-text-secondary: #666666; /* Gray text */
+  --color-accent: #B7894F; /* Gold/Bronze */
+  --color-accent-light: #D4AF7A;
+  --color-red: #D32F2F; 
+  --color-green: #2E8B57;
+
+  --font-serif: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+  
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+/* Base UI Components */
+.btn-primary {
+  background-color: var(--color-text-primary);
+  color: white;
+  padding: 0.85rem 1.5rem;
+  border-radius: var(--border-radius-md);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  transition: background-color 0.2s ease;
+  width: 100%;
+}
+
+.btn-primary:active, .btn-primary:hover { 
+  background-color: #333333; 
+}
+
+.btn-success {
+  background-color: var(--color-accent);
+  color: white;
+  padding: 0.85rem 1.5rem;
+  border-radius: var(--border-radius-md);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  transition: background-color 0.2s ease;
+}
+.btn-success:hover { background-color: var(--color-accent-light); }
+
+.card {
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius-md);
+  padding: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.input, .select, .textarea {
+  width: 100%;
+  padding: 0.85rem;
+  border: 1px solid #EAEAEA;
+  border-radius: var(--border-radius-md);
+  font-family: inherit;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  background-color: var(--color-surface);
+}
+
+.input:focus, .select:focus, .textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+/* Layout helpers */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.flex { display: flex; }
+.flex-col { display: flex; flex-direction: column; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.items-center { align-items: center; }
+.gap-2 { gap: 0.5rem; }
+.gap-4 { gap: 1rem; }
+.mt-4 { margin-top: 1rem; }
+.mb-4 { margin-bottom: 1rem; }
+.text-center { text-align: center; }
+
+/* Elegant Section Headers */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 2.5rem 0 1.5rem 0;
+}
+
+.section-header::before,
+.section-header::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #E0DCD3;
+  margin: 0 1rem;
+}
+
+.section-title {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}

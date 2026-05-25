@@ -1,0 +1,177 @@
+.container {
+  padding: var(--space-8) 0;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+}
+
+.title {
+  font-size: 2rem;
+  margin-bottom: var(--space-2);
+}
+
+.subtitle {
+  color: var(--text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.mainColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.cardIcon {
+  color: var(--primary-color);
+  background-color: var(--bg-color);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  margin-right: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+}
+
+.cardTitle {
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+
+.cardPrice {
+  margin-left: auto;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--text-main);
+}
+
+.aiBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--ai-gradient);
+  color: white;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-xl);
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: var(--space-4);
+}
+
+.budgetItem {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+  font-size: 0.875rem;
+}
+
+.budgetTotal {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-color);
+  font-weight: 700;
+  font-size: 1.125rem;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+}
+
+/* Loading & Verification State */
+.loaderContainer {
+  max-width: 500px;
+  margin: var(--space-12) auto;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.loaderTitle {
+  font-size: 1.5rem;
+  margin-bottom: var(--space-2);
+}
+
+.loaderSubtitle {
+  color: var(--text-muted);
+  margin-bottom: var(--space-8);
+  font-size: 0.875rem;
+}
+
+.stepsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  text-align: left;
+  margin-bottom: var(--space-8);
+}
+
+.stepRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.95rem;
+}
+
+.stepIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stepPending {
+  color: var(--text-muted);
+}
+
+.stepActive {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.stepSuccess {
+  color: var(--success);
+}
+
+/* Map Iframe Styling */
+.mapCard {
+  overflow: hidden;
+}
+
+.mapWrapper {
+  width: 100%;
+  height: 300px;
+  background-color: var(--bg-color);
+  border: none;
+}
+
+.mapWrapper iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
