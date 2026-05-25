@@ -30,15 +30,25 @@ export const AppProvider = ({ children }) => {
         const db = await initRxDB();
         setRxdb(db);
 
-        // Check if DB is empty, if so populate from INITIAL_DATA
-        const usersCount = await db.users.count().exec();
+        // Check if DB collections are empty individually, if so populate from INITIAL_DATA
+        const [usersCount, tablesCount, categoriesCount, menuItemsCount] = await Promise.all([
+          db.users.count().exec(),
+          db.tables.count().exec(),
+          db.categories.count().exec(),
+          db.menuItems.count().exec()
+        ]);
+
         if (usersCount === 0) {
-          await Promise.all([
-            db.users.bulkInsert(INITIAL_DATA.users),
-            db.tables.bulkInsert(INITIAL_DATA.tables),
-            db.categories.bulkInsert(INITIAL_DATA.categories),
-            db.menuItems.bulkInsert(INITIAL_DATA.menuItems)
-          ]);
+          await db.users.bulkInsert(INITIAL_DATA.users);
+        }
+        if (tablesCount === 0) {
+          await db.tables.bulkInsert(INITIAL_DATA.tables);
+        }
+        if (categoriesCount === 0) {
+          await db.categories.bulkInsert(INITIAL_DATA.categories);
+        }
+        if (menuItemsCount === 0) {
+          await db.menuItems.bulkInsert(INITIAL_DATA.menuItems);
         }
 
         // Helper to pull all data into React state
@@ -72,6 +82,8 @@ export const AppProvider = ({ children }) => {
         subs.push(db.waitercalls.$.subscribe(() => updateState()));
         subs.push(db.users.$.subscribe(() => updateState()));
         subs.push(db.menuItems.$.subscribe(() => updateState()));
+        subs.push(db.categories.$.subscribe(() => updateState()));
+        subs.push(db.tables.$.subscribe(() => updateState()));
       } catch (error) {
         console.error("RxDB init error:", error);
         setLoading(false);
@@ -165,6 +177,30 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const addMenuItem = async (item) => {
+    if (!rxdb) return;
+    const newItem = {
+      id: `m_${Date.now()}`,
+      name: item.name,
+      categoryId: item.categoryId,
+      price: Number(item.price),
+      description: item.description,
+      imageUrl: item.imageUrl || 'https://images.unsplash.com/photo-1541167760496-1628856ab772',
+      available: true,
+      customizationOptions: item.customizationOptions || []
+    };
+    await rxdb.menuItems.insert(newItem);
+    return newItem.id;
+  };
+
+  const toggleMenuItemAvailability = async (itemId) => {
+    if (!rxdb) return;
+    const doc = await rxdb.menuItems.findOne(itemId).exec();
+    if (doc) {
+      await doc.patch({ available: !doc.get('available') });
+    }
+  };
+
   return (
     <AppContext.Provider value={{ 
       db: dbState, 
@@ -172,7 +208,8 @@ export const AppProvider = ({ children }) => {
       user, login, logout, 
       cart, addToCart, removeFromCart, clearCart, 
       placeOrder, updateOrderStatus, updateOrderPayment, 
-      callWaiter, dismissCall 
+      callWaiter, dismissCall,
+      addMenuItem, toggleMenuItemAvailability
     }}>
       {children}
     </AppContext.Provider>

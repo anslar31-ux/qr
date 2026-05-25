@@ -4,10 +4,18 @@ import { LogOut, LayoutDashboard, Coffee, Users, ScrollText, Plus, Download } fr
 import { useNavigate } from 'react-router-dom';
 
 const AdminDashboard = () => {
-  const { db, saveDB, logout } = useAppContext();
+  const { db, logout, addMenuItem, toggleMenuItemAvailability } = useAppContext();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('analytics');
-  const [, setTick] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newDish, setNewDish] = useState({
+    name: '',
+    categoryId: '',
+    price: '',
+    description: '',
+    imageUrl: '',
+    customizationOptions: ''
+  });
 
   const handleLogout = () => {
     logout();
@@ -18,12 +26,7 @@ const AdminDashboard = () => {
   const revenue = paidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
   const toggleAvailability = (itemId) => {
-    const item = db.menuItems.find(m => m.id === itemId);
-    if(item) {
-      item.available = !item.available;
-      saveDB(db);
-      setTick(t => t + 1);
-    }
+    toggleMenuItemAvailability(itemId);
   };
 
   const exportToExcel = () => {
@@ -118,7 +121,21 @@ const AdminDashboard = () => {
           <div>
              <div className="flex justify-between items-center mb-6">
                 <h1 className="section-title" style={{ margin: 0 }}>Menu Catalog</h1>
-                <button className="btn-success flex items-center gap-2" style={{ width: 'auto' }} onClick={() => alert('Add Item feature to be fully implemented')}>
+                <button 
+                  className="btn-success flex items-center gap-2" 
+                  style={{ width: 'auto' }} 
+                  onClick={() => {
+                    setNewDish({
+                      name: '',
+                      categoryId: db.categories[0]?.id || 'c1',
+                      price: '',
+                      description: '',
+                      imageUrl: '',
+                      customizationOptions: ''
+                    });
+                    setIsModalOpen(true);
+                  }}
+                >
                   <Plus size={18} /> Add Dish
                 </button>
              </div>
@@ -200,6 +217,104 @@ const AdminDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Add Dish Modal */}
+      {isModalOpen && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="card" style={{ width: '500px', padding: '2rem', borderRadius: 'var(--border-radius-lg)', backgroundColor: '#FFFFFF', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h2 style={{ fontFamily: 'var(--font-serif)', marginBottom: '1.5rem', color: 'var(--color-text-primary)' }}>Add New Dish</h2>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!newDish.name || !newDish.price || !newDish.description) {
+                alert("Please fill in name, price, and description.");
+                return;
+              }
+              const customOpts = newDish.customizationOptions
+                ? newDish.customizationOptions.split(',').map(o => o.trim()).filter(Boolean)
+                : [];
+              await addMenuItem({
+                ...newDish,
+                customizationOptions: customOpts
+              });
+              setIsModalOpen(false);
+            }} className="flex-col gap-4">
+              <div className="flex-col gap-1">
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Name *</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={newDish.name} 
+                  onChange={e => setNewDish(prev => ({ ...prev, name: e.target.value }))}
+                  style={{ padding: '0.75rem', borderRadius: 'var(--border-radius-md)', border: '1px solid #CCC' }}
+                />
+              </div>
+              <div className="flex justify-between gap-4">
+                <div className="flex-col gap-1" style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Category</label>
+                  <select 
+                    value={newDish.categoryId} 
+                    onChange={e => setNewDish(prev => ({ ...prev, categoryId: e.target.value }))}
+                    style={{ padding: '0.75rem', borderRadius: 'var(--border-radius-md)', border: '1px solid #CCC', backgroundColor: '#FFF' }}
+                  >
+                    {db.categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-col gap-1" style={{ flex: 1 }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Price ($) *</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    required 
+                    value={newDish.price} 
+                    onChange={e => setNewDish(prev => ({ ...prev, price: e.target.value }))}
+                    style={{ padding: '0.75rem', borderRadius: 'var(--border-radius-md)', border: '1px solid #CCC' }}
+                  />
+                </div>
+              </div>
+              <div className="flex-col gap-1">
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Description *</label>
+                <textarea 
+                  required 
+                  rows="3"
+                  value={newDish.description} 
+                  onChange={e => setNewDish(prev => ({ ...prev, description: e.target.value }))}
+                  style={{ padding: '0.75rem', borderRadius: 'var(--border-radius-md)', border: '1px solid #CCC', resize: 'none' }}
+                />
+              </div>
+              <div className="flex-col gap-1">
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Image URL (Optional)</label>
+                <input 
+                  type="url" 
+                  placeholder="https://images.unsplash.com/..." 
+                  value={newDish.imageUrl} 
+                  onChange={e => setNewDish(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  style={{ padding: '0.75rem', borderRadius: 'var(--border-radius-md)', border: '1px solid #CCC' }}
+                />
+              </div>
+              <div className="flex-col gap-1">
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-secondary)' }}>Customizations (Optional, comma-separated)</label>
+                <input 
+                  type="text" 
+                  placeholder="Extra shot, Oat milk, Less sugar" 
+                  value={newDish.customizationOptions} 
+                  onChange={e => setNewDish(prev => ({ ...prev, customizationOptions: e.target.value }))}
+                  style={{ padding: '0.75rem', borderRadius: 'var(--border-radius-md)', border: '1px solid #CCC' }}
+                />
+              </div>
+              <div className="flex gap-4 mt-4">
+                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)} style={{ flex: 1 }}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" style={{ flex: 1 }}>
+                  Save Dish
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

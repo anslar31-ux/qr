@@ -135,9 +135,8 @@ export const initRxDB = async () => {
     });
 
     // Set up WebRTC replication for collections that need cross-device sync
-    // In a real app, you would only sync relevant data to relevant clients for security.
-    // Here we sync orders and waiter calls globally.
-    const collectionsToSync = [db.orders, db.waitercalls];
+    // Sync all collections across devices in the cafe so that new dishes, tables, and users sync in real-time.
+    const collectionsToSync = [db.orders, db.waitercalls, db.menuItems, db.categories, db.users, db.tables];
     
     // We use a public signaling server for demonstration.
     // In production, host your own socket.io signaling server.
