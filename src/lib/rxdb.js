@@ -78,19 +78,23 @@ export const initRxDB = async () => {
     // Devices must be open simultaneously for WebRTC to sync.
     // Use public signaling server for demonstration.
     const signalingServerUrl = 'wss://signaling.rxdb.info/';
-    const roomName = 'qr-cafe-orders-v1'; // unique room
+    const roomName = 'anslar-qr-cafe-v1-prod'; // unique room
 
-    [db.orders, db.waitercalls].forEach((collection) => {
-      replicateWebRTC({
-        collection,
-        topic: `${roomName}-${collection.name}`,
-        connectionHandlerCreator: getConnectionHandlerSimplePeer({
-          signalingServerUrl,
-        }),
-        pull: {},
-        push: {},
+    try {
+      [db.orders, db.waitercalls].forEach((collection) => {
+        replicateWebRTC({
+          collection,
+          topic: `${roomName}-${collection.name}`,
+          connectionHandlerCreator: getConnectionHandlerSimplePeer({
+            signalingServerUrl,
+          }),
+          pull: {},
+          push: {},
+        });
       });
-    });
+    } catch (err) {
+      console.warn("WebRTC Sync Error:", err);
+    }
 
     return db;
   })();

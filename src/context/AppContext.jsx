@@ -179,7 +179,10 @@ export const AppProvider = ({ children }) => {
   // ─── Orders (RxDB) ───────────────────────────────────────────────────────
 
   const placeOrder = async (tableId) => {
-    if (!rxdb) return;
+    if (!rxdb) {
+      alert("Database connection is currently offline. Please refresh the page and try again.");
+      return;
+    }
     const totalAmount = cart.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
