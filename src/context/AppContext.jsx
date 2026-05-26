@@ -185,20 +185,37 @@ export const AppProvider = ({ children }) => {
       0
     );
     const orderId = `ord_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    await rxdb.orders.insert({
-      id: orderId,
-      tableId,
-      customerId: user?.id || 'guest',
-      customerName: user?.name || 'Guest',
-      customerEmail: user?.email || '',
-      items: cart,
-      totalAmount,
-      status: 'Pending',
-      paymentStatus: 'Unpaid',
-      createdAt: new Date().toISOString(),
-    });
-    clearCart();
-    return orderId;
+    
+    // Strip out fields not in the RxDB schema to prevent validation errors
+    const cleanedItems = cart.map(item => ({
+      cartId: item.cartId,
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      customizations: item.customizations || [],
+      specialInstructions: item.specialInstructions || ''
+    }));
+
+    try {
+      await rxdb.orders.insert({
+        id: orderId,
+        tableId,
+        customerId: user?.id || 'guest',
+        customerName: user?.name || 'Guest',
+        customerEmail: user?.email || '',
+        items: cleanedItems,
+        totalAmount,
+        status: 'Pending',
+        paymentStatus: 'Unpaid',
+        createdAt: new Date().toISOString(),
+      });
+      clearCart();
+      return orderId;
+    } catch (err) {
+      console.error("Failed to place order:", err);
+      alert("Error placing order. Please try again.");
+    }
   };
 
   const updateOrderStatus = async (orderId, status) => {
