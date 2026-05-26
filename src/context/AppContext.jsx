@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { initRxDB } from '../lib/rxdb';
 import { INITIAL_DATA } from '../lib/initial-data';
+import { db as firestore } from '../lib/firebase';
+import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const AppContext = createContext();
 
@@ -26,7 +27,6 @@ function saveMenuToStorage(menu) {
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export const AppProvider = ({ children }) => {
-  const [rxdb, setRxdb] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // ── Menu state (localStorage + BroadcastChannel) ──────────────────────────
@@ -55,42 +55,37 @@ export const AppProvider = ({ children }) => {
     return () => bc.close();
   }, []);
 
-  // ── Orders / WaiterCalls state (RxDB + WebRTC) ────────────────────────────
+  // ── Orders / WaiterCalls state (Firebase) ────────────────────────────
   const [ordersState, setOrdersState] = useState({ orders: [], waiterCalls: [] });
 
   useEffect(() => {
-    let subs = [];
+    // Listen to orders
+    const ordersQuery = query(collection(firestore, 'orders'));
+    const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
+      const orders = snapshot.docs.map(doc => doc.data());
+      // Sort in memory by createdAt descending to keep the newest first
+      orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setOrdersState(prev => ({ ...prev, orders }));
+      setLoading(false); // Consider loading finished once first orders arrive
+    }, (error) => {
+      console.error("Firestore Orders listener error:", error);
+      setLoading(false);
+    });
 
-    const setupDB = async () => {
-      try {
-        const db = await initRxDB();
-        setRxdb(db);
+    // Listen to waiter calls
+    const waiterCallsQuery = query(collection(firestore, 'waitercalls'));
+    const unsubscribeWaiterCalls = onSnapshot(waiterCallsQuery, (snapshot) => {
+      const waiterCalls = snapshot.docs.map(doc => doc.data());
+      waiterCalls.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      setOrdersState(prev => ({ ...prev, waiterCalls }));
+    }, (error) => {
+      console.error("Firestore WaiterCalls listener error:", error);
+    });
 
-        const updateOrders = async () => {
-          const [orders, waiterCalls] = await Promise.all([
-            db.orders.find().exec(),
-            db.waitercalls.find().exec(),
-          ]);
-          setOrdersState({
-            orders: orders.map((d) => d.toJSON()),
-            waiterCalls: waiterCalls.map((d) => d.toJSON()),
-          });
-        };
-
-        await updateOrders();
-        setLoading(false);
-
-        subs.push(db.orders.$.subscribe(() => updateOrders()));
-        subs.push(db.waitercalls.$.subscribe(() => updateOrders()));
-      } catch (err) {
-        console.error('RxDB init error:', err);
-        alert(`Database Init Error: ${err.message || err.toString()}`);
-        setLoading(false);
-      }
+    return () => {
+      unsubscribeOrders();
+      unsubscribeWaiterCalls();
     };
-
-    setupDB();
-    return () => subs.forEach((s) => s.unsubscribe());
   }, []);
 
   // ── Static data (users + tables from INITIAL_DATA) ───────────────────────
@@ -177,20 +172,16 @@ export const AppProvider = ({ children }) => {
     broadcastMenu(updated);
   };
 
-  // ─── Orders (RxDB) ───────────────────────────────────────────────────────
+  // ─── Orders (Firebase) ───────────────────────────────────────────────────────
 
   const placeOrder = async (tableId) => {
-    if (!rxdb) {
-      alert("Database connection is currently offline. Please refresh the page and try again.");
-      return;
-    }
     const totalAmount = cart.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
     const orderId = `ord_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     
-    // Strip out fields not in the RxDB schema to prevent validation errors
+    // Clean items for firestore
     const cleanedItems = cart.map(item => ({
       cartId: item.cartId,
       id: item.id,
@@ -202,7 +193,7 @@ export const AppProvider = ({ children }) => {
     }));
 
     try {
-      await rxdb.orders.insert({
+      await setDoc(doc(firestore, 'orders', orderId), {
         id: orderId,
         tableId,
         customerId: user?.id || 'guest',
@@ -223,32 +214,41 @@ export const AppProvider = ({ children }) => {
   };
 
   const updateOrderStatus = async (orderId, status) => {
-    if (!rxdb) return;
-    const doc = await rxdb.orders.findOne(orderId).exec();
-    if (doc) await doc.patch({ status });
+    try {
+      await updateDoc(doc(firestore, 'orders', orderId), { status });
+    } catch (err) {
+      console.error("Error updating order status:", err);
+    }
   };
 
   const updateOrderPayment = async (orderId, paymentStatus) => {
-    if (!rxdb) return;
-    const doc = await rxdb.orders.findOne(orderId).exec();
-    if (doc) await doc.patch({ paymentStatus });
+    try {
+      await updateDoc(doc(firestore, 'orders', orderId), { paymentStatus });
+    } catch (err) {
+      console.error("Error updating order payment status:", err);
+    }
   };
 
   const callWaiter = async (tableId, orderId) => {
-    if (!rxdb) return;
     const callId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    await rxdb.waitercalls.insert({
-      id: callId,
-      tableId,
-      orderId: orderId || '',
-      timestamp: new Date().toISOString(),
-    });
+    try {
+      await setDoc(doc(firestore, 'waitercalls', callId), {
+        id: callId,
+        tableId,
+        orderId: orderId || '',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error("Error calling waiter:", err);
+    }
   };
 
   const dismissCall = async (callId) => {
-    if (!rxdb) return;
-    const doc = await rxdb.waitercalls.findOne(callId).exec();
-    if (doc) await doc.remove();
+    try {
+      await deleteDoc(doc(firestore, 'waitercalls', callId));
+    } catch (err) {
+      console.error("Error dismissing call:", err);
+    }
   };
 
   // ─── Context value ────────────────────────────────────────────────────────
