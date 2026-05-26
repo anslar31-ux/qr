@@ -3,6 +3,8 @@ import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { replicateWebRTC, getConnectionHandlerSimplePeer } from 'rxdb/plugins/replication-webrtc';
 import { RxDBUpdatePlugin } from 'rxdb/plugins/update';
 
+import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
+addRxPlugin(RxDBDevModePlugin);
 addRxPlugin(RxDBUpdatePlugin);
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
