@@ -84,6 +84,7 @@ export const AppProvider = ({ children }) => {
         subs.push(db.waitercalls.$.subscribe(() => updateOrders()));
       } catch (err) {
         console.error('RxDB init error:', err);
+        alert(`Database Init Error: ${err.message || err.toString()}`);
         setLoading(false);
       }
     };
