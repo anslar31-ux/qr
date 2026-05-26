@@ -10,10 +10,10 @@ const Cart = () => {
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const tableId = sessionStorage.getItem('currentTable') || 'T1';
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (cart.length === 0) return;
-    const orderId = placeOrder(tableId);
-    navigate(`/app/tracking/${orderId}`);
+    const orderId = await placeOrder(tableId);
+    if (orderId) navigate(`/app/tracking/${orderId}`);
   };
 
   return (
