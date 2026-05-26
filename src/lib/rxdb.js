@@ -68,7 +68,6 @@ export const initRxDB = async () => {
       storage: getRxStorageDexie(),
       multiInstance: true,
       eventReduce: true,
-      ignoreDuplicate: true,
     });
 
     await db.addCollections({
