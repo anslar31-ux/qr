@@ -150,8 +150,8 @@ const WaiterDashboard = () => {
               </div>
 
               <ul style={{ listStyle: 'none', padding: 0, marginBottom: '1.5rem', minHeight: '80px', color: 'var(--color-text-primary)', fontSize: '0.9rem' }}>
-                {order.items.map(item => (
-                  <li key={item.cartId} style={{ marginBottom: '0.4rem', borderBottom: '1px solid #FAF9F6', paddingBottom: '2px' }}>
+                {(order.items || []).map(item => (
+                  <li key={item.cartId || item.id || Math.random()} style={{ marginBottom: '0.4rem', borderBottom: '1px solid #FAF9F6', paddingBottom: '2px' }}>
                     {renderVegIndicator(item.id)}
                     <strong>{item.quantity}x {item.name}</strong>
                     {renderSpiciness(item.id)}

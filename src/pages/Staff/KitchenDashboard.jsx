@@ -113,8 +113,8 @@ const KitchenDashboard = () => {
               </p>
 
               <div style={{ minHeight: '120px', marginBottom: '1.5rem', borderTop: '1px solid #F0EFEA', paddingTop: '1rem' }}>
-                {order.items.map(item => (
-                  <div key={item.cartId} style={{ marginBottom: '0.85rem', borderBottom: '1px solid #FAF9F6', paddingBottom: '0.5rem' }}>
+                {(order.items || []).map(item => (
+                  <div key={item.cartId || item.id || Math.random()} style={{ marginBottom: '0.85rem', borderBottom: '1px solid #FAF9F6', paddingBottom: '0.5rem' }}>
                     <div className="flex justify-between" style={{ color: 'var(--color-text-primary)' }}>
                       <div>
                         {renderVegIndicator(item.id)}
