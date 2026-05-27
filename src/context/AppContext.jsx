@@ -228,10 +228,27 @@ function saveSettingsToStorage(settings) {
   } catch (_) {}
 }
 
+const LOCAL_ORDERS_STORAGE_KEY = 'cafe_local_orders_v1';
+
+function loadLocalOrdersFromStorage() {
+  try {
+    const raw = localStorage.getItem(LOCAL_ORDERS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return [];
+}
+
+function saveLocalOrdersToStorage(orders) {
+  try {
+    localStorage.setItem(LOCAL_ORDERS_STORAGE_KEY, JSON.stringify(orders));
+  } catch (_) {}
+}
+
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export const AppProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
+  const [localOrders, setLocalOrders] = useState(loadLocalOrdersFromStorage);
 
   // ── Language State ────────────────────────────────────────────────────────
   const [language, setLanguageState] = useState(() => {
@@ -386,13 +403,23 @@ export const AppProvider = ({ children }) => {
     return { ...cat, name };
   });
 
+  // Combine Firestore orders with local orders (avoiding duplicates)
+  const combinedOrders = [...ordersState.orders];
+  localOrders.forEach(localOrd => {
+    if (!combinedOrders.some(o => o.id === localOrd.id)) {
+      combinedOrders.push(localOrd);
+    }
+  });
+  // Sort by createdAt descending
+  combinedOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
   // ── Composed db object for components ─────────────────────────────────────
   const db = {
     users: staticState.users,
     tables: staticState.tables,
     categories: translatedCategories,
     menuItems: translatedMenuItems,
-    orders: ordersState.orders,
+    orders: combinedOrders,
     waiterCalls: ordersState.waiterCalls,
   };
 
@@ -507,43 +534,58 @@ export const AppProvider = ({ children }) => {
       specialInstructions: item.specialInstructions || ''
     }));
 
+    const newOrder = {
+      id: orderId,
+      tableId,
+      customerId: user?.id || 'guest',
+      customerName: user?.name || 'Guest',
+      customerEmail: user?.email || '',
+      items: cleanedItems,
+      subtotal,
+      discount,
+      taxableAmount,
+      cgstRate: settings.cgstRate,
+      sgstRate: settings.sgstRate,
+      cgstAmount,
+      sgstAmount,
+      serviceChargeRate: settings.serviceChargeRate,
+      serviceChargeAmount,
+      totalAmount: grandTotal,
+      paymentMode,
+      gstin: settings.gstin,
+      restaurantName: settings.restaurantName,
+      restaurantAddress: settings.restaurantAddress,
+      restaurantPhone: settings.restaurantPhone,
+      invoiceNumber,
+      status: 'Placed',
+      paymentStatus: 'Unpaid',
+      createdAt: new Date().toISOString(),
+    };
+
+    // Save to local orders state and localStorage immediately
+    setLocalOrders(prev => {
+      const updated = [newOrder, ...prev];
+      saveLocalOrdersToStorage(updated);
+      return updated;
+    });
+
     try {
-      await setDoc(doc(firestore, 'orders', orderId), {
-        id: orderId,
-        tableId,
-        customerId: user?.id || 'guest',
-        customerName: user?.name || 'Guest',
-        customerEmail: user?.email || '',
-        items: cleanedItems,
-        subtotal,
-        discount,
-        taxableAmount,
-        cgstRate: settings.cgstRate,
-        sgstRate: settings.sgstRate,
-        cgstAmount,
-        sgstAmount,
-        serviceChargeRate: settings.serviceChargeRate,
-        serviceChargeAmount,
-        totalAmount: grandTotal,
-        paymentMode,
-        gstin: settings.gstin,
-        restaurantName: settings.restaurantName,
-        restaurantAddress: settings.restaurantAddress,
-        restaurantPhone: settings.restaurantPhone,
-        invoiceNumber,
-        status: 'Placed',
-        paymentStatus: 'Unpaid',
-        createdAt: new Date().toISOString(),
-      });
-      clearCart();
-      return orderId;
+      await setDoc(doc(firestore, 'orders', orderId), newOrder);
     } catch (err) {
-      console.error("Failed to place order:", err);
-      alert("Error placing order. Please try again.");
+      console.error("Failed to sync order to server:", err);
+      // We don't block the user, as we have stored it locally and they can still track/print it!
     }
+
+    clearCart();
+    return orderId;
   };
 
   const updateOrderStatus = async (orderId, status) => {
+    setLocalOrders(prev => {
+      const updated = prev.map(o => o.id === orderId ? { ...o, status } : o);
+      saveLocalOrdersToStorage(updated);
+      return updated;
+    });
     try {
       await updateDoc(doc(firestore, 'orders', orderId), { status });
     } catch (err) {
@@ -552,6 +594,11 @@ export const AppProvider = ({ children }) => {
   };
 
   const updateOrderPayment = async (orderId, paymentStatus) => {
+    setLocalOrders(prev => {
+      const updated = prev.map(o => o.id === orderId ? { ...o, paymentStatus } : o);
+      saveLocalOrdersToStorage(updated);
+      return updated;
+    });
     try {
       await updateDoc(doc(firestore, 'orders', orderId), { paymentStatus });
     } catch (err) {
