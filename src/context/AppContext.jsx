@@ -5,8 +5,198 @@ import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, order
 
 const AppContext = createContext();
 
-const MENU_STORAGE_KEY = 'cafe_menu_v1';
+const MENU_STORAGE_KEY = 'cafe_menu_indian_v1';
 const BROADCAST_CHANNEL = 'cafe_menu_sync';
+const SETTINGS_STORAGE_KEY = 'cafe_settings_v1';
+const SETTINGS_BROADCAST_CHANNEL = 'cafe_settings_sync';
+
+// ─── Translations Dictionary ────────────────────────────────────────────────
+const TRANSLATIONS = {
+  en: {
+    menu: "Menu",
+    bag: "Bag",
+    account: "Account",
+    reserve: "Reserve",
+    addToBag: "Add to Bag",
+    itemAdded: "Item added to bag!",
+    specialInstructions: "Special Instructions",
+    quantity: "Quantity",
+    customizations: "Customizations",
+    orderTotal: "Order Total",
+    placeOrder: "Place Order to Table",
+    emptyBag: "Your bag is currently empty.",
+    returnToMenu: "Return to Menu",
+    orderStatus: "Order Status",
+    requestAssistance: "Request Assistance",
+    waiterNotified: "Waiter Notified",
+    orderReceived: "Order received, waiting for kitchen.",
+    preparing: "Kitchen is crafting your order.",
+    ready: "Your order is ready to be served.",
+    served: "Served! Please enjoy.",
+    paymentPending: "Please complete your payment before leaving.",
+    leaveReview: "Leave a Google Review",
+    connectWifi: "Connect to WiFi",
+    scanToConnect: "Scan to connect instantly",
+    recommendedWithDish: "Recommended with this dish",
+    completeYourMeal: "Complete your meal",
+    combos: "Combos",
+    veg: "Veg",
+    nonVeg: "Non-Veg",
+    spicy: "Spicy",
+    bestseller: "Bestseller",
+    chefSpecial: "Chef Special",
+    newItem: "New",
+    searchPlaceholder: "Search dishes, ingredients...",
+    all: "All",
+    priceRange: "Price Range",
+    gstInvoice: "GST Tax Invoice",
+    invoiceNo: "Invoice No",
+    date: "Date",
+    table: "Table",
+    taxBreakup: "GST Tax Breakup",
+    cgst: "CGST",
+    sgst: "SGST",
+    serviceCharge: "Service Charge",
+    discount: "Discount",
+    grandTotal: "Grand Total",
+    subtotal: "Subtotal",
+    taxableAmt: "Taxable Amt",
+    printInvoice: "Print Invoice",
+    downloadPDF: "Download Invoice",
+    welcome: "Welcome",
+    login: "Log In",
+    signup: "Sign Up",
+    backToMenu: "Back to Menu",
+  },
+  hi: {
+    menu: "मेन्यू",
+    bag: "थैला",
+    account: "खाता",
+    reserve: "आरक्षित",
+    addToBag: "कार्ट में जोड़ें",
+    itemAdded: "सामग्री जोड़ी गई!",
+    specialInstructions: "विशेष निर्देश",
+    quantity: "मात्रा",
+    customizations: "विकल्प",
+    orderTotal: "कुल योग",
+    placeOrder: "टेबल पर ऑर्डर भेजें",
+    emptyBag: "आपका थैला खाली है।",
+    returnToMenu: "मेन्यू पर जाएं",
+    orderStatus: "ऑर्डर की स्थिति",
+    requestAssistance: "सहायता बुलाएं",
+    waiterNotified: "वेटर को सूचित किया गया",
+    orderReceived: "ऑर्डर प्राप्त हुआ, रसोई की प्रतीक्षा है।",
+    preparing: "रसोई में भोजन तैयार हो रहा है।",
+    ready: "आपका भोजन तैयार है।",
+    served: "परोस दिया गया! आनंद लें।",
+    paymentPending: "जाने से पहले भुगतान पूरा करें।",
+    leaveReview: "गूगल पर समीक्षा लिखें",
+    connectWifi: "वाई-फाई से जुड़ें",
+    scanToConnect: "कनेक्ट करने के लिए स्कैन करें",
+    recommendedWithDish: "इस डिश के साथ अनुशंसित",
+    completeYourMeal: "अपना भोजन पूरा करें",
+    combos: "कॉम्बो",
+    veg: "शाकाहारी",
+    nonVeg: "मांसाहारी",
+    spicy: "तीखा",
+    bestseller: "लोकप्रिय",
+    chefSpecial: "शेफ स्पेशल",
+    newItem: "नया",
+    searchPlaceholder: "व्यंजन, सामग्री खोजें...",
+    all: "सभी",
+    priceRange: "मूल्य सीमा",
+    gstInvoice: "जीएसटी टैक्स इनवॉइस",
+    invoiceNo: "इनवॉइस नंबर",
+    date: "दिनांक",
+    table: "टेबल",
+    taxBreakup: "जीएसटी टैक्स ब्रेकअप",
+    cgst: "सीजीएसटी",
+    sgst: "एसजीएसटी",
+    serviceCharge: "सेवा शुल्क",
+    discount: "छूट",
+    grandTotal: "कुल राशि",
+    subtotal: "उप-योग",
+    taxableAmt: "कर योग्य राशि",
+    printInvoice: "इनवॉइस प्रिंट करें",
+    downloadPDF: "इनवॉइस डाउनलोड करें",
+    welcome: "स्वागत है",
+    login: "लॉग इन",
+    signup: "साइन अप",
+    backToMenu: "मेन्यू पर वापस जाएं",
+  },
+  te: {
+    menu: "మెనూ",
+    bag: "బ్యాగ్",
+    account: "ఖాతా",
+    reserve: "రిజర్వేషన్",
+    addToBag: "బ్యాగ్‌లో చేర్చు",
+    itemAdded: "చేర్చబడింది!",
+    specialInstructions: "ప్రత్యేక సూచనలు",
+    quantity: "పరిమాణం",
+    customizations: "కస్టమైజేషన్స్",
+    orderTotal: "ఆర్డర్ మొత్తం",
+    placeOrder: "టేబుల్‌కి ఆర్డర్ చేయి",
+    emptyBag: "మీ బ్యాగ్ ఖాళీగా ఉంది.",
+    returnToMenu: "మెనూకి వెళ్ళు",
+    orderStatus: "ఆర్డర్ స్థితి",
+    requestAssistance: "సహాయం కోరండి",
+    waiterNotified: "వేటర్‌కి సమాచారం అందింది",
+    orderReceived: "ఆర్డర్ అందింది, కిచెన్ స్పందన కోసం నిరీక్షణ.",
+    preparing: "కిచెన్‌లో మీ ఆర్డర్ తయారవుతోంది.",
+    ready: "వడ్డించడానికి సిద్ధంగా ఉంది.",
+    served: "వడ్డించబడింది! ఆస్వాదించండి.",
+    paymentPending: "వెళ్లే ముందు బిల్లు చెల్లించండి.",
+    leaveReview: "గూగుల్ రివ్యూ ఇవ్వండి",
+    connectWifi: "వైఫై కనెక్ట్ చేయి",
+    scanToConnect: "కనెక్ట్ కావడానికి స్కాన్ చేయి",
+    recommendedWithDish: "దీనితో పాటు సిఫార్సు చేయబడింది",
+    completeYourMeal: "మీ భోజనాన్ని పూర్తి చేయండి",
+    combos: "కాంబోలు",
+    veg: "వెజ్",
+    nonVeg: "నాన్-వెజ్",
+    spicy: "కారం",
+    bestseller: "బెస్ట్ సెల్లర్",
+    chefSpecial: "షెఫ్ స్పెషల్",
+    newItem: "కొత్తది",
+    searchPlaceholder: "వంటకాలు వెతకండి...",
+    all: "అన్నీ",
+    priceRange: "ధర పరిధి",
+    gstInvoice: "జీఎస్టీ ఇన్వాయిస్",
+    invoiceNo: "ఇన్వాయిస్ సంఖ్య",
+    date: "తేదీ",
+    table: "టేబుల్",
+    taxBreakup: "జీఎస్టీ పన్ను విభజన",
+    cgst: "సీజీఎస్‌టీ",
+    sgst: "ఎస్‌జీఎస్‌టీ",
+    serviceCharge: "సర్వీస్ చార్జ్",
+    discount: "డిస్కౌంట్",
+    grandTotal: "మొత్తం బిల్లు",
+    subtotal: "సబ్ టోటల్",
+    taxableAmt: "పన్ను విధించదగిన మొత్తం",
+    printInvoice: "ప్రింట్ ఇన్వాయిస్",
+    downloadPDF: "ఇన్వాయిస్ డౌన్‌లోడ్",
+    welcome: "స్వాగతం",
+    login: "లాగిన్",
+    signup: "సైన్ అప్",
+    backToMenu: "మెనూకి తిరిగి వెళ్ళు",
+  }
+};
+
+const DEFAULT_SETTINGS = {
+  restaurantName: "L'Artisan Indian Bistro",
+  restaurantAddress: "12, Kasturba Gandhi Marg, Connaught Place, New Delhi, Delhi 110001",
+  restaurantPhone: "+91 11 2345 6789",
+  gstin: "07AAAAA1111A1Z1",
+  cgstRate: 2.5,
+  sgstRate: 2.5,
+  serviceChargeRate: 5.0,
+  showWifiQR: true,
+  wifiSSID: "LArtisan_Premium_WiFi",
+  wifiPassword: "Namaste2026",
+  wifiEncryption: "WPA",
+  showReviewCTA: true,
+  googleReviewLink: "https://search.google.com/local/writereview?placeid=ChIJe0O8a7PzDzkR6Lq-Vn1P3r8",
+};
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -24,10 +214,68 @@ function saveMenuToStorage(menu) {
   } catch (_) {}
 }
 
+function loadSettingsFromStorage() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return DEFAULT_SETTINGS;
+}
+
+function saveSettingsToStorage(settings) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch (_) {}
+}
+
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export const AppProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
+
+  // ── Language State ────────────────────────────────────────────────────────
+  const [language, setLanguageState] = useState(() => {
+    try {
+      return localStorage.getItem('selected_language') || 'en';
+    } catch (_) {
+      return 'en';
+    }
+  });
+
+  const setLanguage = (lang) => {
+    setLanguageState(lang);
+    try {
+      localStorage.setItem('selected_language', lang);
+    } catch (_) {}
+  };
+
+  const t = (key) => {
+    const dict = TRANSLATIONS[language] || TRANSLATIONS.en;
+    return dict[key] || TRANSLATIONS.en[key] || key;
+  };
+
+  // ── Settings State (localStorage + BroadcastChannel) ──────────────────────
+  const [settings, setSettingsState] = useState(loadSettingsFromStorage);
+  const settingsBcRef = useRef(null);
+
+  useEffect(() => {
+    const settingsBc = new BroadcastChannel(SETTINGS_BROADCAST_CHANNEL);
+    settingsBcRef.current = settingsBc;
+    settingsBc.onmessage = (e) => {
+      setSettingsState(e.data);
+      saveSettingsToStorage(e.data);
+    };
+    return () => settingsBc.close();
+  }, []);
+
+  const updateSettings = (updatedSettings) => {
+    const fresh = { ...settings, ...updatedSettings };
+    setSettingsState(fresh);
+    saveSettingsToStorage(fresh);
+    try {
+      settingsBcRef.current?.postMessage(fresh);
+    } catch (_) {}
+  };
 
   // ── Menu state (localStorage + BroadcastChannel) ──────────────────────────
   const getInitialMenu = () => {
@@ -94,12 +342,56 @@ export const AppProvider = ({ children }) => {
     tables: INITIAL_DATA.tables,
   });
 
+  // Translate menu items and categories on-the-fly based on selected language
+  const translatedMenuItems = menuState.menuItems.map(item => {
+    let name = item.name;
+    let description = item.description;
+    if (language === 'hi') {
+      name = item.name_hi || item.name;
+      description = item.description_hi || item.description;
+    } else if (language === 'te') {
+      name = item.name_te || item.name;
+      description = item.description_te || item.description;
+    }
+    return { ...item, name, description };
+  });
+
+  const translatedCategories = menuState.categories.map(cat => {
+    let name = cat.name;
+    if (language === 'hi') {
+      if (cat.id === 'c_starters') name = "शुरुआती भोजन (Starters)";
+      else if (cat.id === 'c_soups') name = "सूप (Soups)";
+      else if (cat.id === 'c_veg') name = "शाकाहारी मुख्य (Veg)";
+      else if (cat.id === 'c_nonveg') name = "मांसाहारी मुख्य (Non-Veg)";
+      else if (cat.id === 'c_tandoor') name = "तंदूर और रोटियां";
+      else if (cat.id === 'c_rice') name = "चावल के व्यंजन";
+      else if (cat.id === 'c_biryani') name = "बिरयानी";
+      else if (cat.id === 'c_snacks') name = "नाश्ता और स्नैक्स";
+      else if (cat.id === 'c_beverages') name = "पेय पदार्थ";
+      else if (cat.id === 'c_desserts') name = "मीठा (Desserts)";
+      else if (cat.id === 'c_combos') name = "कॉम्बो ऑफर्स";
+    } else if (language === 'te') {
+      if (cat.id === 'c_starters') name = "స్టార్టర్స్ (Starters)";
+      else if (cat.id === 'c_soups') name = "సూప్స్ (Soups)";
+      else if (cat.id === 'c_veg') name = "వెజ్ కర్రీస్ (Veg)";
+      else if (cat.id === 'c_nonveg') name = "నాన్-వెజ్ కర్రీస్ (Non-Veg)";
+      else if (cat.id === 'c_tandoor') name = "తందూరి & రోటీలు";
+      else if (cat.id === 'c_rice') name = "అన్నం రకాలు";
+      else if (cat.id === 'c_biryani') name = "బిరియాని";
+      else if (cat.id === 'c_snacks') name = "స్నాక్స్";
+      else if (cat.id === 'c_beverages') name = "పానీయాలు";
+      else if (cat.id === 'c_desserts') name = "డెజర్ట్స్ (Desserts)";
+      else if (cat.id === 'c_combos') name = "కాంబో ఆఫర్స్";
+    }
+    return { ...cat, name };
+  });
+
   // ── Composed db object for components ─────────────────────────────────────
   const db = {
     users: staticState.users,
     tables: staticState.tables,
-    categories: menuState.categories,
-    menuItems: menuState.menuItems,
+    categories: translatedCategories,
+    menuItems: translatedMenuItems,
     orders: ordersState.orders,
     waiterCalls: ordersState.waiterCalls,
   };
@@ -145,14 +437,25 @@ export const AppProvider = ({ children }) => {
     const newItem = {
       id: `m_${Date.now()}`,
       name: item.name,
+      name_hi: item.name_hi || item.name,
+      name_te: item.name_te || item.name,
       categoryId: item.categoryId,
       price: Number(item.price),
       description: item.description,
+      description_hi: item.description_hi || item.description,
+      description_te: item.description_te || item.description,
       imageUrl:
         item.imageUrl ||
         'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&q=80',
       available: true,
       customizationOptions: item.customizationOptions || [],
+      isVeg: item.isVeg !== undefined ? item.isVeg : true,
+      isSpicy: Number(item.isSpicy || 0),
+      isBestseller: !!item.isBestseller,
+      isChefSpecial: !!item.isChefSpecial,
+      isNew: !!item.isNew,
+      portionInfo: item.portionInfo || 'Serves 1-2',
+      upsellIds: item.upsellIds || []
     };
     const updated = {
       ...menuState,
@@ -174,14 +477,26 @@ export const AppProvider = ({ children }) => {
 
   // ─── Orders (Firebase) ───────────────────────────────────────────────────────
 
-  const placeOrder = async (tableId) => {
-    const totalAmount = cart.reduce(
+  const placeOrder = async (tableId, paymentMode = 'Cash') => {
+    const subtotal = cart.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
+
+    const discount = 0; // standard 0 discount initially
+    const taxableAmount = subtotal - discount;
+    const cgstAmount = Math.round((taxableAmount * (settings.cgstRate / 100)) * 100) / 100;
+    const sgstAmount = Math.round((taxableAmount * (settings.sgstRate / 100)) * 100) / 100;
+    const serviceChargeAmount = Math.round((taxableAmount * (settings.serviceChargeRate / 100)) * 100) / 100;
+    const grandTotal = Math.round(taxableAmount + cgstAmount + sgstAmount + serviceChargeAmount);
+
     const orderId = `ord_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     
-    // Clean items for firestore
+    const year = new Date().getFullYear();
+    const month = String(new Date().getMonth() + 1).padStart(2, '0');
+    const day = String(new Date().getDate()).padStart(2, '0');
+    const invoiceNumber = `INV-${year}${month}${day}-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const cleanedItems = cart.map(item => ({
       cartId: item.cartId,
       id: item.id,
@@ -200,8 +515,23 @@ export const AppProvider = ({ children }) => {
         customerName: user?.name || 'Guest',
         customerEmail: user?.email || '',
         items: cleanedItems,
-        totalAmount,
-        status: 'Pending',
+        subtotal,
+        discount,
+        taxableAmount,
+        cgstRate: settings.cgstRate,
+        sgstRate: settings.sgstRate,
+        cgstAmount,
+        sgstAmount,
+        serviceChargeRate: settings.serviceChargeRate,
+        serviceChargeAmount,
+        totalAmount: grandTotal,
+        paymentMode,
+        gstin: settings.gstin,
+        restaurantName: settings.restaurantName,
+        restaurantAddress: settings.restaurantAddress,
+        restaurantPhone: settings.restaurantPhone,
+        invoiceNumber,
+        status: 'Placed',
         paymentStatus: 'Unpaid',
         createdAt: new Date().toISOString(),
       });
@@ -263,6 +593,8 @@ export const AppProvider = ({ children }) => {
         placeOrder, updateOrderStatus, updateOrderPayment,
         callWaiter, dismissCall,
         addMenuItem, toggleMenuItemAvailability,
+        settings, updateSettings,
+        language, setLanguage, t
       }}
     >
       {children}
