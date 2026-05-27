@@ -1,26 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { ArrowLeft, Minus, Plus, ShoppingBag, Sparkles } from 'lucide-react';
 
 const ItemDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { db, addToCart, t } = useAppContext();
+  const { db, addToCart, t, language } = useAppContext();
   
-  const [item, setItem] = useState(null);
+  // Find item directly from context during render (no useEffect race conditions)
+  const item = db?.menuItems?.find(m => m.id === id);
+
   const [quantity, setQuantity] = useState(1);
   const [selectedCustomizations, setSelectedCustomizations] = useState({});
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [toastMessage, setToastMessage] = useState('');
 
-  useEffect(() => {
-    const found = db.menuItems.find(m => m.id === id);
-    if(found) setItem(found);
-    else navigate('/app/menu');
-  }, [id, db, navigate]);
-
-  if(!item) return null;
+  if (!item) {
+    return <Navigate to="/app/menu" replace />;
+  }
 
   const handleCustomizationToggle = (option) => {
     setSelectedCustomizations(prev => ({
