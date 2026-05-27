@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 
 const Auth = () => {
-  const { login, user } = useAppContext();
+  const { login, signup, user } = useAppContext();
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
 
   if (user) {
@@ -17,28 +19,28 @@ const Auth = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setError('');
+
+    if (!agreed) {
+      setError('You must agree to the Privacy Policy to continue.');
+      return;
+    }
+
     if (isLogin) {
-      const success = login(email, password);
-      if (success) {
-        const dbStr = localStorage.getItem('qr_cafe_db');
-        if (dbStr) {
-           const currentUser = JSON.parse(dbStr).users.find(u => u.email === email);
-           if(currentUser.role === 'customer' || !currentUser.role) navigate('/app/menu');
-           else if(currentUser.role === 'kitchen') navigate('/staff/kitchen');
-           else if(currentUser.role === 'waiter') navigate('/staff/waiter');
-           else if(currentUser.role === 'owner') navigate('/admin/dashboard');
-        }
+      const u = login(email, password);
+      if (u) {
+        if(u.role === 'customer' || !u.role) navigate('/app/menu');
+        else if(u.role === 'kitchen') navigate('/staff/kitchen');
+        else if(u.role === 'waiter') navigate('/staff/waiter');
+        else if(u.role === 'owner') navigate('/admin/dashboard');
       } else {
         setError('Invalid credentials');
       }
     } else {
-      const dbStr = localStorage.getItem('qr_cafe_db');
-      if (dbStr) {
-        const db = JSON.parse(dbStr);
-        const newUser = { id: `u_${Date.now()}`, name: email.split('@')[0], email, password, role: 'customer' };
-        db.users.push(newUser);
-        localStorage.setItem('qr_cafe_db', JSON.stringify(db));
-        login(email, password);
+      const result = signup(name || email.split('@')[0], email, password);
+      if (result.error) {
+        setError(result.error);
+      } else {
         navigate('/app/menu');
       }
     }
@@ -50,8 +52,19 @@ const Auth = () => {
         <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', marginBottom: '1.5rem', fontWeight: 600 }}>
           {isLogin ? 'Welcome Back' : 'Create Account'}
         </h2>
-        {error && <p style={{ color: 'var(--color-red)', marginBottom: '1rem' }}>{error}</p>}
-        <form onSubmit={handleSubmit} className="flex-col" style={{ gap: '1rem' }}>
+        {error && <p style={{ color: 'var(--color-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</p>}
+        <form onSubmit={handleSubmit} className="flex-col" style={{ gap: '1rem', textAlign: 'left' }}>
+          {!isLogin && (
+            <input 
+              type="text" 
+              className="input" 
+              placeholder="Full Name" 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required={!isLogin} 
+              style={{ marginBottom: 0 }}
+            />
+          )}
           <input 
             type="email" 
             className="input" 
@@ -70,11 +83,21 @@ const Auth = () => {
             required 
             style={{ marginBottom: 0 }}
           />
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--color-text-secondary)', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              required
+              style={{ accentColor: 'var(--color-accent)', width: '16px', height: '16px' }}
+            />
+            <span>I agree to the Privacy & Policy</span>
+          </label>
           <button type="submit" className="btn-primary" style={{ marginTop: '0.5rem', backgroundColor: 'var(--color-text-primary)' }}>
             {isLogin ? 'Sign In' : 'Sign Up'}
           </button>
         </form>
-        <p className="mt-4" style={{ cursor: 'pointer', color: 'var(--color-accent)', fontSize: '0.9rem', fontWeight: 500, letterSpacing: '0.05em' }} onClick={() => setIsLogin(!isLogin)}>
+        <p className="mt-4" style={{ cursor: 'pointer', color: 'var(--color-accent)', fontSize: '0.9rem', fontWeight: 500, letterSpacing: '0.05em' }} onClick={() => { setIsLogin(!isLogin); setError(''); }}>
           {isLogin ? "DON'T HAVE AN ACCOUNT? SIGN UP" : "ALREADY HAVE AN ACCOUNT? LOG IN"}
         </p>
       </div>

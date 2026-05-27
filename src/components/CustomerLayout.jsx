@@ -4,11 +4,17 @@ import { Menu as MenuIcon, User, ShoppingBag, BookOpen, Globe } from 'lucide-rea
 import { useAppContext } from '../context/AppContext';
 
 export default function CustomerLayout() {
-  const { cart, language, setLanguage, t, settings } = useAppContext();
+  const { cart, language, setLanguage, t, settings, user } = useAppContext();
   const navigate = useNavigate();
   const location = useLocation();
 
   const isRoute = (path) => location.pathname.includes(path);
+
+  React.useEffect(() => {
+    if (!user && !isRoute('/auth') && !isRoute('/t/')) {
+      navigate('/app/auth', { replace: true });
+    }
+  }, [user, location.pathname, navigate]);
 
   return (
     <div style={{ backgroundColor: 'var(--color-bg)', minHeight: '100vh', paddingBottom: '70px', position: 'relative', display: 'flex', flexDirection: 'column' }}>
