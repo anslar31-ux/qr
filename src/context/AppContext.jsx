@@ -244,6 +244,41 @@ function saveLocalOrdersToStorage(orders) {
   } catch (_) {}
 }
 
+const USERS_STORAGE_KEY = 'cafe_users_v1';
+
+function loadUsersFromStorage() {
+  try {
+    const raw = localStorage.getItem(USERS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  try {
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(INITIAL_DATA.users));
+  } catch (_) {}
+  return INITIAL_DATA.users;
+}
+
+function saveUsersToStorage(users) {
+  try {
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+  } catch (_) {}
+}
+
+const CART_STORAGE_KEY = 'cafe_cart_v1';
+
+function loadCartFromStorage() {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return [];
+}
+
+function saveCartToStorage(cart) {
+  try {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  } catch (_) {}
+}
+
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export const AppProvider = ({ children }) => {
@@ -353,9 +388,9 @@ export const AppProvider = ({ children }) => {
     };
   }, []);
 
-  // ── Static data (users + tables from INITIAL_DATA) ───────────────────────
+  // ── Persistent Users and Static Tables ───────────────────────────────────
+  const [users, setUsers] = useState(loadUsersFromStorage);
   const [staticState] = useState({
-    users: INITIAL_DATA.users,
     tables: INITIAL_DATA.tables,
   });
 
@@ -415,7 +450,7 @@ export const AppProvider = ({ children }) => {
 
   // ── Composed db object for components ─────────────────────────────────────
   const db = {
-    users: staticState.users,
+    users: users,
     tables: staticState.tables,
     categories: translatedCategories,
     menuItems: translatedMenuItems,
@@ -424,31 +459,82 @@ export const AppProvider = ({ children }) => {
   };
 
   // ─── Auth ─────────────────────────────────────────────────────────────────
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const raw = localStorage.getItem('current_user_v1');
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return null;
+  });
 
   const login = (email, password) => {
-    const u = staticState.users.find(
+    const u = users.find(
       (u) => u.email === email && u.password === password
     );
-    if (u) { setUser(u); return true; }
-    return false;
+    if (u) { 
+      setUser(u); 
+      localStorage.setItem('current_user_v1', JSON.stringify(u));
+      return u; 
+    }
+    return null;
   };
 
-  const logout = () => setUser(null);
+  const signup = (name, email, password) => {
+    if (users.some(u => u.email === email)) {
+      return { error: 'Email already registered' };
+    }
+    const newUser = {
+      id: `u_${Date.now()}`,
+      name,
+      email,
+      password,
+      role: 'customer'
+    };
+    const updatedUsers = [...users, newUser];
+    setUsers(updatedUsers);
+    saveUsersToStorage(updatedUsers);
+    
+    // Auto-login after signup
+    setUser(newUser);
+    localStorage.setItem('current_user_v1', JSON.stringify(newUser));
+    return { user: newUser };
+  };
+
+  const logout = () => {
+    setUser(null);
+    try {
+      localStorage.removeItem('current_user_v1');
+    } catch (_) {}
+  };
 
   // ─── Cart ─────────────────────────────────────────────────────────────────
-  const [cart, setCart] = useState([]);
+  const [cart, setCartState] = useState(loadCartFromStorage);
 
-  const addToCart = (item, quantity, customizations, specialInstructions) =>
-    setCart((prev) => [
-      ...prev,
-      { ...item, cartId: Date.now(), quantity, customizations, specialInstructions },
-    ]);
+  const addToCart = (item, quantity, customizations, specialInstructions) => {
+    setCartState((prev) => {
+      const updated = [
+        ...prev,
+        { ...item, cartId: Date.now(), quantity, customizations, specialInstructions },
+      ];
+      saveCartToStorage(updated);
+      return updated;
+    });
+  };
 
-  const removeFromCart = (cartId) =>
-    setCart((prev) => prev.filter((c) => c.cartId !== cartId));
+  const removeFromCart = (cartId) => {
+    setCartState((prev) => {
+      const updated = prev.filter((c) => c.cartId !== cartId);
+      saveCartToStorage(updated);
+      return updated;
+    });
+  };
 
-  const clearCart = () => setCart([]);
+  const clearCart = () => {
+    setCartState([]);
+    try {
+      localStorage.removeItem(CART_STORAGE_KEY);
+    } catch (_) {}
+  };
 
   // ─── Menu management (localStorage + BroadcastChannel) ───────────────────
 
@@ -635,7 +721,7 @@ export const AppProvider = ({ children }) => {
       value={{
         db,
         loading,
-        user, login, logout,
+        user, login, logout, signup,
         cart, addToCart, removeFromCart, clearCart,
         placeOrder, updateOrderStatus, updateOrderPayment,
         callWaiter, dismissCall,
